@@ -1,0 +1,145 @@
+{
+  "schema_version": "1.0",
+  "project_id": "example-web-app",
+  "cloud": "azure",
+  "blueprint": "vm_behind_app_gateway",
+  "region": "westeurope",
+  "scope": {
+    "tenant": {"placeholder": "TENANT_1", "mode": "existing"},
+    "subscription": {"placeholder": "SUBSCRIPTION_1", "mode": "existing"}
+  },
+  "resources": [
+    {
+      "id": "rg",
+      "kind": "resource_group",
+      "name": "rg-example-web",
+      "explanation": {
+        "what": "A container that groups related Azure resources.",
+        "why": "Keeps every resource for this app together so it can be managed, secured and removed as one unit."
+      }
+    },
+    {
+      "id": "vnet",
+      "kind": "virtual_network",
+      "name": "vnet-example-web",
+      "depends_on": ["rg"],
+      "explanation": {
+        "what": "A private network in Azure.",
+        "why": "Gives the server a private address so it is not exposed directly to the internet."
+      }
+    },
+    {
+      "id": "snet_gateway",
+      "kind": "subnet",
+      "name": "snet-gateway",
+      "depends_on": ["vnet"],
+      "explanation": {
+        "what": "A section of the network reserved for the Application Gateway.",
+        "why": "Keeps the gateway separate from the server so each can have its own rules."
+      }
+    },
+    {
+      "id": "snet_app",
+      "kind": "subnet",
+      "name": "snet-app",
+      "depends_on": ["vnet"],
+      "explanation": {
+        "what": "A section of the network for the application server.",
+        "why": "Holds the server on a private address range with its own security rules."
+      }
+    },
+    {
+      "id": "nsg_app",
+      "kind": "network_security_group",
+      "name": "nsg-app",
+      "depends_on": ["rg"],
+      "explanation": {
+        "what": "A set of firewall rules for a subnet.",
+        "why": "Only lets traffic from the gateway reach the server."
+      }
+    },
+    {
+      "id": "pip_gateway",
+      "kind": "public_ip",
+      "name": "pip-gateway",
+      "depends_on": ["rg"],
+      "explanation": {
+        "what": "A public internet address.",
+        "why": "The gateway needs one so users can reach the app. The server itself stays private."
+      }
+    },
+    {
+      "id": "agw",
+      "kind": "application_gateway",
+      "name": "agw-example-web",
+      "depends_on": ["snet_gateway", "pip_gateway"],
+      "explanation": {
+        "what": "A web traffic load balancer that receives user requests.",
+        "why": "It is the only public entry point and forwards requests to the private server."
+      }
+    },
+    {
+      "id": "vm",
+      "kind": "virtual_machine",
+      "name": "vm-example-web",
+      "depends_on": ["snet_app"],
+      "settings": {"os": "linux"},
+      "explanation": {
+        "what": "A virtual server that runs the application.",
+        "why": "Runs your app on a private address, reachable only through the gateway."
+      }
+    },
+    {
+      "id": "ra_operators",
+      "kind": "role_assignment",
+      "name": "ra-operators",
+      "depends_on": ["rg"],
+      "explanation": {
+        "what": "Grants a group permission on a set of resources.",
+        "why": "Gives your operators access with only the rights they need."
+      }
+    }
+  ],
+  "network": {
+    "vnet_id": "vnet",
+    "address_space": ["10.20.0.0/16"],
+    "subnets": [
+      {"resource_id": "snet_gateway", "cidr": "10.20.1.0/24"},
+      {"resource_id": "snet_app", "cidr": "10.20.2.0/24", "nsg_id": "nsg_app"}
+    ],
+    "nsg_rules": [
+      {
+        "nsg_id": "nsg_app",
+        "name": "allow-http-from-gateway",
+        "description": "Gateway subnet to app servers on HTTP",
+        "priority": 100,
+        "direction": "Inbound",
+        "access": "Allow",
+        "protocol": "Tcp",
+        "source": "10.20.1.0/24",
+        "destination": "10.20.2.0/24",
+        "destination_ports": "80"
+      },
+      {
+        "nsg_id": "nsg_app",
+        "name": "deny-internet-inbound",
+        "description": "Block everything else from the internet",
+        "priority": 4096,
+        "direction": "Inbound",
+        "access": "Deny",
+        "protocol": "*",
+        "source": "Internet",
+        "destination": "*",
+        "destination_ports": "*"
+      }
+    ]
+  },
+  "access": [
+    {"principal": "GROUP_1", "role": "Reader", "scope_resource": "rg"}
+  ],
+  "decisions": [
+    {"question": "Do you already have a tenant?", "answer": "Yes, use the existing one."},
+    {"question": "Which region?", "answer": "westeurope"}
+  ],
+  "approval": {"approved": false}
+}

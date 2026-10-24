@@ -1,0 +1,8 @@
+# Version overrides, each with a reason. Reviewed by the owner.
+#
+# filelock: litellm 1.106.2 pins filelock<4.0, but filelock 3.32.7 has
+# CVE-2026-112940, CVE-2026-112913 and CVE-2026-112907, fixed only in 4.2.1.
+# huggingface-hub (pulled in by litellm) uses the affected SoftFileLock.
+# litellm itself uses filelock only in its proxy CLI, which this project
+# never runs. Checked 2026-10-23. Remove when litellm allows filelock 4.
+filelock==4.2.4

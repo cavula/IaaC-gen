@@ -1,0 +1,555 @@
+{
+  "blueprint_version": "1.0",
+  "id": "vm_behind_app_gateway",
+  "cloud": "azure",
+  "title": "Web app on a private virtual machine behind an Application Gateway",
+  "summary": "Runs your application on a virtual machine that has only a private address. Users reach it through an Application Gateway, which is the only part with a public address. Network security groups limit traffic so that only the gateway can reach the server.",
+  "match_phrases": [
+    "deploy my app on a server",
+    "host a web app on a virtual machine",
+    "run my website on a vm",
+    "app behind a load balancer",
+    "web server with application gateway"
+  ],
+  "facts": [
+    {
+      "id": "rg_lifecycle",
+      "statement": "Resources in a resource group should share the same lifecycle. Deleting a resource group deletes every resource in it.",
+      "source": "https://learn.microsoft.com/azure/azure-resource-manager/management/overview",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "vnet_isolation",
+      "statement": "Each virtual network is isolated from other virtual networks, so its traffic is not reachable by other Azure customers.",
+      "source": "https://learn.microsoft.com/azure/security/fundamentals/network-overview",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "nsg_on_subnets",
+      "statement": "Microsoft recommends associating network security groups with subnets rather than with individual network interfaces where possible.",
+      "source": "https://learn.microsoft.com/azure/virtual-network/virtual-network-vnet-plan-design-arm",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "nsg_priority",
+      "statement": "Security rule priority is a number from 100 to 4096. Lower numbers are processed first. Priority must be unique within the inbound rules and within the outbound rules.",
+      "source": "https://learn.microsoft.com/azure/virtual-network/network-security-groups-overview",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "nsg_default_rules",
+      "statement": "Every network security group has default rules, including AllowVNetInBound at 65000, AllowAzureLoadBalancerInBound at 65001 and DenyAllInbound at 65500. Custom rules are processed before them.",
+      "source": "https://learn.microsoft.com/azure/virtual-network/network-security-groups-overview",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "agw_dedicated_subnet",
+      "statement": "Application Gateway requires a dedicated subnet. Other resources such as virtual machines or private endpoints cannot share it.",
+      "source": "https://learn.microsoft.com/troubleshoot/azure/application-gateway/troubleshoot-application-gateway-deployment-scaling-deletion-failures",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "agw_subnet_size",
+      "statement": "A /24 subnet is recommended for Application Gateway v2 so autoscaling has room for more instances.",
+      "source": "https://learn.microsoft.com/troubleshoot/azure/application-gateway/troubleshoot-application-gateway-deployment-scaling-deletion-failures",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "agw_gateway_manager",
+      "statement": "For Application Gateway v2 without network isolation, the gateway subnet must allow inbound TCP 65200 to 65535 from the GatewayManager service tag to any destination.",
+      "source": "https://learn.microsoft.com/azure/application-gateway/configuration-infrastructure",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "agw_load_balancer",
+      "statement": "Inbound traffic from the AzureLoadBalancer service tag must be allowed on the gateway subnet and must not be overridden by a manual deny rule.",
+      "source": "https://learn.microsoft.com/azure/application-gateway/configuration-infrastructure",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "agw_outbound",
+      "statement": "Outbound internet connectivity from the gateway subnet must not be blocked.",
+      "source": "https://learn.microsoft.com/azure/application-gateway/configuration-infrastructure",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "agw_public_ip",
+      "statement": "Application Gateway v2 supports Standard SKU public IP addresses that are static only.",
+      "source": "https://learn.microsoft.com/azure/virtual-network/ip-services/configure-public-ip-application-gateway",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "basic_ip_retired",
+      "statement": "Basic SKU public IP addresses were retired on 30 September 2025.",
+      "source": "https://learn.microsoft.com/azure/virtual-network/ip-services/public-ip-addresses",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "agw_v2_skus",
+      "statement": "The v2 SKU types include Standard_v2 and WAF_v2.",
+      "source": "https://learn.microsoft.com/azure/application-gateway/overview-v2",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "disk_encryption_default",
+      "statement": "Managed disks, including the OS disk, are encrypted at rest by default with platform managed keys, and this cannot be disabled.",
+      "source": "https://learn.microsoft.com/azure/virtual-machines/faq-for-disks",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "temp_disk_gap",
+      "statement": "Default server side encryption does not cover temp disks or disk caches. Encryption at host adds encryption for those.",
+      "source": "https://learn.microsoft.com/azure/security/fundamentals/virtual-machines-overview",
+      "checked": "2026-10-23"
+    },
+    {
+      "id": "vm_login_roles",
+      "statement": "Azure has built-in roles including Reader, Virtual Machine User Login and Virtual Machine Administrator Login.",
+      "source": "https://learn.microsoft.com/azure/role-based-access-control/built-in-roles/compute",
+      "checked": "2026-10-23"
+    }
+  ],
+  "resources": [
+    {
+      "id": "rg",
+      "kind": "resource_group",
+      "name_template": "rg-{project}",
+      "facts": [
+        "rg_lifecycle"
+      ],
+      "explanation": {
+        "what": "A resource group is a folder for Azure resources.",
+        "why": "Everything for this app lives together, so you can manage, secure and remove it as one unit. Deleting the group deletes everything in it.",
+        "verified": true,
+        "sources": [
+          "https://learn.microsoft.com/azure/azure-resource-manager/management/overview"
+        ]
+      }
+    },
+    {
+      "id": "vnet",
+      "kind": "virtual_network",
+      "name_template": "vnet-{project}",
+      "depends_on": [
+        "rg"
+      ],
+      "facts": [
+        "vnet_isolation"
+      ],
+      "explanation": {
+        "what": "A virtual network is your own private network inside Azure.",
+        "why": "It gives the server a private address. It is isolated from other customers' networks.",
+        "verified": true,
+        "sources": [
+          "https://learn.microsoft.com/azure/security/fundamentals/network-overview"
+        ]
+      }
+    },
+    {
+      "id": "nsg_gateway",
+      "kind": "network_security_group",
+      "name_template": "nsg-agw-{project}",
+      "depends_on": [
+        "rg"
+      ],
+      "facts": [
+        "agw_gateway_manager",
+        "agw_load_balancer",
+        "agw_outbound",
+        "nsg_default_rules"
+      ],
+      "explanation": {
+        "what": "A network security group is a set of firewall rules.",
+        "why": "This one protects the gateway subnet. It lets users reach the gateway on its listener port and allows the Azure management traffic the gateway needs to work.",
+        "verified": true,
+        "sources": [
+          "https://learn.microsoft.com/azure/application-gateway/configuration-infrastructure"
+        ]
+      }
+    },
+    {
+      "id": "nsg_app",
+      "kind": "network_security_group",
+      "name_template": "nsg-app-{project}",
+      "depends_on": [
+        "rg"
+      ],
+      "facts": [
+        "nsg_on_subnets",
+        "nsg_default_rules"
+      ],
+      "explanation": {
+        "what": "A network security group is a set of firewall rules.",
+        "why": "This one protects the server subnet. Only the gateway may reach the server, and traffic from the internet is denied.",
+        "verified": true,
+        "sources": [
+          "https://learn.microsoft.com/azure/virtual-network/network-security-groups-overview"
+        ]
+      }
+    },
+    {
+      "id": "snet_gateway",
+      "kind": "subnet",
+      "name_template": "snet-agw-{project}",
+      "depends_on": [
+        "vnet",
+        "nsg_gateway"
+      ],
+      "facts": [
+        "agw_dedicated_subnet",
+        "agw_subnet_size"
+      ],
+      "explanation": {
+        "what": "A subnet is a section of the virtual network.",
+        "why": "Application Gateway needs a subnet of its own. A /24 is recommended so it can scale out.",
+        "verified": true,
+        "sources": [
+          "https://learn.microsoft.com/troubleshoot/azure/application-gateway/troubleshoot-application-gateway-deployment-scaling-deletion-failures"
+        ]
+      }
+    },
+    {
+      "id": "snet_app",
+      "kind": "subnet",
+      "name_template": "snet-app-{project}",
+      "depends_on": [
+        "vnet",
+        "nsg_app"
+      ],
+      "facts": [
+        "nsg_on_subnets"
+      ],
+      "explanation": {
+        "what": "A subnet is a section of the virtual network.",
+        "why": "This one holds the server on a private address range, with its own firewall rules.",
+        "verified": true,
+        "sources": [
+          "https://learn.microsoft.com/azure/virtual-network/virtual-network-vnet-plan-design-arm"
+        ]
+      }
+    },
+    {
+      "id": "pip_gateway",
+      "kind": "public_ip",
+      "name_template": "pip-agw-{project}",
+      "depends_on": [
+        "rg"
+      ],
+      "settings": {
+        "sku": "Standard",
+        "allocation": "Static"
+      },
+      "facts": [
+        "agw_public_ip",
+        "basic_ip_retired"
+      ],
+      "explanation": {
+        "what": "A public IP address is an address on the internet.",
+        "why": "The gateway needs one so users can reach your app. The server never gets one. Application Gateway v2 requires a Standard, static address.",
+        "verified": true,
+        "sources": [
+          "https://learn.microsoft.com/azure/virtual-network/ip-services/configure-public-ip-application-gateway"
+        ]
+      }
+    },
+    {
+      "id": "agw",
+      "kind": "application_gateway",
+      "name_template": "agw-{project}",
+      "depends_on": [
+        "snet_gateway",
+        "pip_gateway"
+      ],
+      "settings": {
+        "sku": "WAF_v2"
+      },
+      "facts": [
+        "agw_v2_skus",
+        "agw_dedicated_subnet",
+        "agw_gateway_manager"
+      ],
+      "explanation": {
+        "what": "Application Gateway is a web traffic load balancer that receives user requests.",
+        "why": "It is the only public entry point and forwards requests to your private server. The WAF_v2 type adds a web application firewall.",
+        "verified": true,
+        "sources": [
+          "https://learn.microsoft.com/azure/application-gateway/overview-v2"
+        ]
+      }
+    },
+    {
+      "id": "vm",
+      "kind": "virtual_machine",
+      "name_template": "vm-{project}",
+      "depends_on": [
+        "snet_app"
+      ],
+      "settings": {
+        "os": "linux"
+      },
+      "facts": [
+        "disk_encryption_default",
+        "temp_disk_gap"
+      ],
+      "explanation": {
+        "what": "A virtual machine is a server in Azure that runs your application.",
+        "why": "It has only a private address and is reachable only through the gateway. Its disks are encrypted at rest by default.",
+        "verified": true,
+        "sources": [
+          "https://learn.microsoft.com/azure/virtual-machines/faq-for-disks"
+        ]
+      }
+    },
+    {
+      "id": "ra_operators",
+      "kind": "role_assignment",
+      "name_template": "ra-operators-{project}",
+      "depends_on": [
+        "rg"
+      ],
+      "facts": [
+        "vm_login_roles"
+      ],
+      "explanation": {
+        "what": "A role assignment gives a group permission on a set of resources.",
+        "why": "Your operators get only the access they need, following least privilege.",
+        "verified": true,
+        "sources": [
+          "https://learn.microsoft.com/azure/role-based-access-control/built-in-roles/compute"
+        ]
+      }
+    }
+  ],
+  "default_network": {
+    "vnet_id": "vnet",
+    "address_space": [
+      "10.20.0.0/16"
+    ],
+    "subnets": [
+      {
+        "resource_id": "snet_gateway",
+        "cidr": "10.20.1.0/24",
+        "nsg_id": "nsg_gateway"
+      },
+      {
+        "resource_id": "snet_app",
+        "cidr": "10.20.2.0/24",
+        "nsg_id": "nsg_app"
+      }
+    ],
+    "nsg_rules": [
+      {
+        "nsg_id": "nsg_gateway",
+        "name": "allow-https-listener",
+        "description": "Users reach the gateway listener over HTTPS",
+        "priority": 100,
+        "direction": "Inbound",
+        "access": "Allow",
+        "protocol": "Tcp",
+        "source": "Internet",
+        "destination": "*",
+        "destination_ports": "443"
+      },
+      {
+        "nsg_id": "nsg_gateway",
+        "name": "allow-gateway-manager",
+        "description": "Azure infrastructure traffic required by Application Gateway v2",
+        "priority": 110,
+        "direction": "Inbound",
+        "access": "Allow",
+        "protocol": "Tcp",
+        "source": "GatewayManager",
+        "destination": "*",
+        "destination_ports": "65200-65535"
+      },
+      {
+        "nsg_id": "nsg_gateway",
+        "name": "allow-azure-load-balancer",
+        "description": "Azure load balancer health probes",
+        "priority": 120,
+        "direction": "Inbound",
+        "access": "Allow",
+        "protocol": "*",
+        "source": "AzureLoadBalancer",
+        "destination": "*",
+        "destination_ports": "*"
+      },
+      {
+        "nsg_id": "nsg_app",
+        "name": "allow-https-from-gateway",
+        "description": "Only the gateway subnet may reach the server, over HTTPS",
+        "priority": 100,
+        "direction": "Inbound",
+        "access": "Allow",
+        "protocol": "Tcp",
+        "source": "10.20.1.0/24",
+        "destination": "10.20.2.0/24",
+        "destination_ports": "443"
+      },
+      {
+        "nsg_id": "nsg_app",
+        "name": "deny-internet-inbound",
+        "description": "Deny anything else from the internet",
+        "priority": 4096,
+        "direction": "Inbound",
+        "access": "Deny",
+        "protocol": "*",
+        "source": "Internet",
+        "destination": "*",
+        "destination_ports": "*"
+      }
+    ]
+  },
+  "default_access": [
+    {
+      "principal": "GROUP_1",
+      "role": "Reader",
+      "scope_resource": "rg"
+    }
+  ],
+  "questions": [
+    {
+      "id": "tenant",
+      "round": 1,
+      "text": "Do you already have a Microsoft Entra tenant for your organisation?",
+      "why": "Everything in Azure lives under a tenant. If you need a new one, it is created outside this tool first.",
+      "answer": "choice",
+      "options": [
+        {
+          "value": "existing",
+          "label": "Yes, use my existing tenant"
+        },
+        {
+          "value": "new",
+          "label": "No, I need to create one"
+        }
+      ],
+      "default": "existing"
+    },
+    {
+      "id": "subscription",
+      "round": 1,
+      "text": "Should this go into an existing Azure subscription, or a new one?",
+      "why": "A subscription holds the resources and receives the bill.",
+      "answer": "choice",
+      "options": [
+        {
+          "value": "existing",
+          "label": "An existing subscription"
+        },
+        {
+          "value": "new",
+          "label": "A new subscription"
+        }
+      ],
+      "default": "existing"
+    },
+    {
+      "id": "region",
+      "round": 1,
+      "text": "Which Azure region should host the app?",
+      "why": "Pick one close to your users. Not every service or size is offered in every region, so the region is checked before code is generated.",
+      "answer": "region"
+    },
+    {
+      "id": "os",
+      "round": 2,
+      "text": "Which operating system does your app need?",
+      "why": "This decides the server image and how administrators sign in.",
+      "answer": "choice",
+      "options": [
+        {
+          "value": "linux",
+          "label": "Linux"
+        },
+        {
+          "value": "windows",
+          "label": "Windows"
+        }
+      ],
+      "default": "linux"
+    },
+    {
+      "id": "backend_port",
+      "round": 2,
+      "text": "Which port does your app listen on inside the server?",
+      "why": "The gateway forwards traffic to this port. HTTPS keeps traffic encrypted all the way to the server.",
+      "answer": "choice",
+      "options": [
+        {
+          "value": "443",
+          "label": "443 (HTTPS, recommended)"
+        },
+        {
+          "value": "80",
+          "label": "80 (HTTP, unencrypted inside the network)"
+        }
+      ],
+      "default": "443"
+    },
+    {
+      "id": "gateway_sku",
+      "round": 2,
+      "text": "Do you want a web application firewall on the gateway?",
+      "why": "WAF_v2 inspects requests and blocks common web attacks. Standard_v2 does not.",
+      "answer": "choice",
+      "options": [
+        {
+          "value": "WAF_v2",
+          "label": "Yes, WAF_v2 (recommended)"
+        },
+        {
+          "value": "Standard_v2",
+          "label": "No, Standard_v2"
+        }
+      ],
+      "default": "WAF_v2"
+    },
+    {
+      "id": "address_space",
+      "round": 3,
+      "text": "Which private address range should the network use?",
+      "why": "It must not overlap with networks you may connect later, such as your office.",
+      "answer": "cidr",
+      "default": "10.20.0.0/16"
+    },
+    {
+      "id": "operators",
+      "round": 4,
+      "text": "Which groups of people need access to these resources?",
+      "why": "Access is given to groups, not individuals. Real names stay on your machine and are replaced by placeholders before anything is sent to the AI.",
+      "answer": "principal_list",
+      "default": "GROUP_1"
+    },
+    {
+      "id": "operator_role",
+      "round": 3,
+      "text": "What should the people who run this be able to do?",
+      "why": "Least privilege: give only the access the job needs.",
+      "answer": "choice",
+      "options": [
+        {
+          "value": "Reader",
+          "label": "View resources only"
+        },
+        {
+          "value": "Virtual Machine User Login",
+          "label": "Sign in to the server as a regular user"
+        },
+        {
+          "value": "Virtual Machine Administrator Login",
+          "label": "Sign in to the server as an administrator"
+        }
+      ],
+      "default": "Reader"
+    }
+  ],
+  "known_gaps": [
+    "Logging and monitoring resources are not modelled yet. The project guardrails require them, so they must be added before Slice 2 generates code.",
+    "The TLS certificate for the HTTPS listener is not modelled yet.",
+    "An administrator access path to the private server, such as Azure Bastion, is not modelled yet.",
+    "Region availability of each service and size is not checked yet. It will come from Azure APIs, not from the AI.",
+    "Encryption at host for temp disks is not enabled yet. Its prerequisites need to be checked first.",
+    "Private only Application Gateway deployments (network isolation) are not covered."
+  ]
+}

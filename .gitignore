@@ -1,0 +1,38 @@
+# Secrets and local config: never commit
+.env
+.env.*
+!.env.example
+
+# Local workspace and data
+workspace/
+*.sqlite
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Node
+node_modules/
+web/dist/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

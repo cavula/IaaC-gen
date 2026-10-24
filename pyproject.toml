@@ -1,0 +1,33 @@
+[project]
+name = "app-core"
+version = "0.0.1"
+description = "Local first infrastructure design assistant (working title, see branding.json)"
+license = "Apache-2.0"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic==2.14.1",
+    "pydantic-settings==2.16.1",
+    "keyring==25.7.0",
+    "fastapi==0.162.0",
+    "uvicorn==0.54.0",
+    "litellm==1.106.2",
+    "detect-secrets==1.5.0",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+# E/F: errors, I: import order, B: bug patterns, S: security (bandit rules), UP: modern syntax
+select = ["E", "F", "I", "B", "S", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use assert, and fake tokens as fixtures (real secrets are still caught by detect-secrets)
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+python_version = "3.13"
+strict = true
+files = ["core", "engine", "tests"]

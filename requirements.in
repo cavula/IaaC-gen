@@ -1,0 +1,10 @@
+# Runtime dependencies. Versions checked on PyPI on 2026-10-23. MIT, BSD and Apache 2.0 licensed.
+# Lock with hashes for Linux, macOS and Windows:
+#   uv pip compile --universal --generate-hashes --python-version 3.13 --override overrides.txt requirements.in -o requirements.txt
+pydantic==2.14.1
+pydantic-settings==2.16.1
+keyring==25.7.0
+fastapi==0.162.0
+uvicorn==0.54.0
+litellm==1.106.2
+detect-secrets==1.5.0

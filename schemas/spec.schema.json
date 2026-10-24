@@ -1,0 +1,511 @@
+{
+  "$defs": {
+    "Access": {
+      "additionalProperties": false,
+      "properties": {
+        "principal": {
+          "pattern": "^[A-Z][A-Z]*(_[A-Z]+)*_[0-9]{1,4}$",
+          "title": "Principal",
+          "type": "string"
+        },
+        "role": {
+          "pattern": "^[A-Za-z][A-Za-z0-9 ._-]{1,99}$",
+          "title": "Role",
+          "type": "string"
+        },
+        "scope_resource": {
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "title": "Scope Resource",
+          "type": "string"
+        }
+      },
+      "required": [
+        "principal",
+        "role",
+        "scope_resource"
+      ],
+      "title": "Access",
+      "type": "object"
+    },
+    "Approval": {
+      "additionalProperties": false,
+      "properties": {
+        "approved": {
+          "default": false,
+          "title": "Approved",
+          "type": "boolean"
+        },
+        "approved_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved At"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "pattern": "^v[1-9][0-9]{0,5}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "title": "Approval",
+      "type": "object"
+    },
+    "Decision": {
+      "additionalProperties": false,
+      "properties": {
+        "answer": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Answer",
+          "type": "string"
+        },
+        "question": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question",
+        "answer"
+      ],
+      "title": "Decision",
+      "type": "object"
+    },
+    "Explanation": {
+      "additionalProperties": false,
+      "properties": {
+        "cost_note": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Note"
+        },
+        "region_notes": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Region Notes"
+        },
+        "sources": {
+          "items": {
+            "pattern": "^https://[^\\s]{1,300}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Sources",
+          "type": "array"
+        },
+        "verified": {
+          "default": false,
+          "title": "Verified",
+          "type": "boolean"
+        },
+        "what": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "What",
+          "type": "string"
+        },
+        "why": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Why",
+          "type": "string"
+        }
+      },
+      "required": [
+        "what",
+        "why"
+      ],
+      "title": "Explanation",
+      "type": "object"
+    },
+    "Identity": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "existing",
+            "new"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "placeholder": {
+          "pattern": "^[A-Z][A-Z]*(_[A-Z]+)*_[0-9]{1,4}$",
+          "title": "Placeholder",
+          "type": "string"
+        }
+      },
+      "required": [
+        "placeholder",
+        "mode"
+      ],
+      "title": "Identity",
+      "type": "object"
+    },
+    "Kind": {
+      "enum": [
+        "resource_group",
+        "virtual_network",
+        "subnet",
+        "network_security_group",
+        "virtual_machine",
+        "application_gateway",
+        "public_ip",
+        "role_assignment"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "Network": {
+      "additionalProperties": false,
+      "properties": {
+        "address_space": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Address Space",
+          "type": "array"
+        },
+        "nsg_rules": {
+          "items": {
+            "$ref": "#/$defs/NsgRule"
+          },
+          "maxItems": 200,
+          "title": "Nsg Rules",
+          "type": "array"
+        },
+        "subnets": {
+          "items": {
+            "$ref": "#/$defs/Subnet"
+          },
+          "maxItems": 50,
+          "title": "Subnets",
+          "type": "array"
+        },
+        "vnet_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "title": "Vnet Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "vnet_id",
+        "address_space"
+      ],
+      "title": "Network",
+      "type": "object"
+    },
+    "NsgRule": {
+      "additionalProperties": false,
+      "properties": {
+        "access": {
+          "enum": [
+            "Allow",
+            "Deny"
+          ],
+          "title": "Access",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 140,
+          "title": "Description",
+          "type": "string"
+        },
+        "destination": {
+          "title": "Destination",
+          "type": "string"
+        },
+        "destination_ports": {
+          "title": "Destination Ports",
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "Inbound",
+            "Outbound"
+          ],
+          "title": "Direction",
+          "type": "string"
+        },
+        "name": {
+          "pattern": "^[A-Za-z0-9_]([A-Za-z0-9._-]{0,78}[A-Za-z0-9_])?$",
+          "title": "Name",
+          "type": "string"
+        },
+        "nsg_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "title": "Nsg Id",
+          "type": "string"
+        },
+        "priority": {
+          "maximum": 4096,
+          "minimum": 100,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "protocol": {
+          "enum": [
+            "Tcp",
+            "Udp",
+            "Icmp",
+            "Esp",
+            "Ah",
+            "*"
+          ],
+          "title": "Protocol",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ports": {
+          "default": "*",
+          "title": "Source Ports",
+          "type": "string"
+        }
+      },
+      "required": [
+        "nsg_id",
+        "name",
+        "priority",
+        "direction",
+        "access",
+        "protocol",
+        "source",
+        "destination",
+        "destination_ports"
+      ],
+      "title": "NsgRule",
+      "type": "object"
+    },
+    "Resource": {
+      "additionalProperties": false,
+      "properties": {
+        "depends_on": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "explanation": {
+          "$ref": "#/$defs/Explanation"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/Kind"
+        },
+        "name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "settings": {
+          "maxProperties": 50,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]{0,62}$": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          },
+          "title": "Settings",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "explanation"
+      ],
+      "title": "Resource",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "subscription": {
+          "$ref": "#/$defs/Identity"
+        },
+        "tenant": {
+          "$ref": "#/$defs/Identity"
+        }
+      },
+      "required": [
+        "tenant",
+        "subscription"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "Subnet": {
+      "additionalProperties": false,
+      "properties": {
+        "cidr": {
+          "title": "Cidr",
+          "type": "string"
+        },
+        "nsg_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nsg Id"
+        },
+        "resource_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "title": "Resource Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resource_id",
+        "cidr"
+      ],
+      "title": "Subnet",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "access": {
+      "items": {
+        "$ref": "#/$defs/Access"
+      },
+      "maxItems": 100,
+      "title": "Access",
+      "type": "array"
+    },
+    "approval": {
+      "$ref": "#/$defs/Approval"
+    },
+    "blueprint": {
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "title": "Blueprint",
+      "type": "string"
+    },
+    "cloud": {
+      "const": "azure",
+      "title": "Cloud",
+      "type": "string"
+    },
+    "decisions": {
+      "items": {
+        "$ref": "#/$defs/Decision"
+      },
+      "maxItems": 200,
+      "title": "Decisions",
+      "type": "array"
+    },
+    "network": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Network"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "project_id": {
+      "pattern": "^[a-z0-9][a-z0-9-]{2,62}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "region": {
+      "pattern": "^[a-z][a-z0-9]{1,39}$",
+      "title": "Region",
+      "type": "string"
+    },
+    "resources": {
+      "items": {
+        "$ref": "#/$defs/Resource"
+      },
+      "maxItems": 200,
+      "minItems": 1,
+      "title": "Resources",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope": {
+      "$ref": "#/$defs/Scope"
+    }
+  },
+  "required": [
+    "schema_version",
+    "project_id",
+    "cloud",
+    "blueprint",
+    "region",
+    "scope",
+    "resources"
+  ],
+  "title": "Infrastructure spec",
+  "type": "object"
+}

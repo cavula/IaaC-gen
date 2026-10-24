@@ -1,0 +1,10 @@
+# Development and CI tools. Versions checked on PyPI on 2026-10-23.
+# Lock with hashes for Linux, macOS and Windows:
+#   uv pip compile --universal --generate-hashes --python-version 3.13 requirements-dev.in -o requirements-dev.txt
+ruff==0.17.2
+mypy==2.4.0
+pip-audit==2.10.1
+cyclonedx-bom==7.5.0
+pip-licenses==5.5.5
+uv==0.13.5
+httpx2==2.16.0
