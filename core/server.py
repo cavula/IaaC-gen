@@ -24,20 +24,23 @@ import ipaddress
 import logging
 import secrets
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.staticfiles import StaticFiles
 
 from core.audit_store import SqliteAuditStore
-from core.branding import get_branding
+from core.branding import REPO_ROOT, get_branding
 from core.discovery import Discovery, DiscoveryError
 from core.gateway import Gateway
 from core.projects import ProjectError, ProjectExists, ProjectStore
 
 BIND_HOST = "127.0.0.1"
+WEB_DIST = REPO_ROOT / "web" / "dist"
 ALLOWED_HOSTS = ("127.0.0.1", "localhost")
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 CSRF_HEADER = "X-CSRF-Token"
@@ -92,6 +95,7 @@ def create_app(
     audit_store: SqliteAuditStore | None = None,
     discovery: Discovery | None = None,
     projects: ProjectStore | None = None,
+    web_dist: Path | None = None,
 ) -> FastAPI:
     """Build the app. Pass csrf_token only in tests."""
     token = csrf_token or secrets.token_urlsafe(32)
@@ -218,6 +222,19 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(exc)) from None
         return {"spec": spec.model_dump(mode="json")}
 
+    # The screen (task K11): the built web app, served from this same origin so
+    # the strict Content Security Policy (script-src 'self') applies.
+    if web_dist is not None and (web_dist / "index.html").is_file():
+        app.mount("/", StaticFiles(directory=web_dist, html=True), name="web")
+    else:
+
+        @app.get("/")
+        def no_screen() -> JSONResponse:
+            return JSONResponse(
+                {"error": "the screen is not built yet: run 'npm ci && npm run build' in web/"},
+                status_code=503,
+            )
+
     return app
 
 
@@ -278,7 +295,13 @@ def run() -> None:
     discovery = Discovery(_gateway_or_none(store))
     projects = ProjectStore(settings.workspace_dir)
     uvicorn.run(
-        create_app(settings.port, audit_store=store, discovery=discovery, projects=projects),
+        create_app(
+            settings.port,
+            audit_store=store,
+            discovery=discovery,
+            projects=projects,
+            web_dist=WEB_DIST,
+        ),
         host=BIND_HOST,
         port=settings.port,
         server_header=False,

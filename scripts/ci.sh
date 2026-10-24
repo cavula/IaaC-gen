@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
 # Runs every check in one place, locally and in CI. Any failure stops the run.
-# Assumes requirements.txt and requirements-dev.txt are installed (pip install --require-hashes).
+# Assumes requirements.txt and requirements-dev.txt are installed (pip install --require-hashes)
+# and Node.js 22.12 or newer for the web app.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+echo "== 0. Web app: install (locked, no install scripts), audit, licences, types, tests, build"
+(
+  cd web
+  npm ci --ignore-scripts --no-fund --no-audit
+  npm audit --audit-level=low
+  npm run --silent licences
+  npm run --silent typecheck
+  npm test --silent
+  npm run --silent build
+)
 
 echo "== 1. Lint and security lint (ruff)"
 ruff check .

@@ -6,13 +6,13 @@ An open source, local first tool that turns a plain language infrastructure requ
 
 ## Status
 
-Phase 1, Slice 1. Tasks K01 (repository skeleton), K02 (CI pipeline), K03 (configuration), K04 (local web server), K05 (spec format), K06 (first blueprint), K07 (LLM gateway), K08 (audit log), K09 (discovery) and K10 (approval and versions) complete.
+Phase 1, Slice 1. Tasks K01 (repository skeleton), K02 (CI pipeline), K03 (configuration), K04 (local web server), K05 (spec format), K06 (first blueprint), K07 (LLM gateway), K08 (audit log), K09 (discovery), K10 (approval and versions) and K11 (the screen) complete.
 
 ## Layout
 
 * core: shared logic, including the branding loader
 * engine: infrastructure as code engine (Terraform first, pluggable)
-* web: frontend (added in task K11)
+* web: the screen (React with TypeScript, built with Vite)
 * assets/brand: logos and icons, referenced only through branding.json
 * blueprints: reviewed starting designs, one JSON file per blueprint. Every fact cites official documentation and the date it was checked.
 * schemas: JSON Schema for the infrastructure spec (generated, do not edit by hand)
@@ -21,7 +21,7 @@ Phase 1, Slice 1. Tasks K01 (repository skeleton), K02 (CI pipeline), K03 (confi
 
 ## Run all checks
 
-Requires Python 3.13. Dependencies and tools are pinned with hashes in requirements.txt and requirements-dev.txt.
+Requires Python 3.13, Node.js 22.12 or newer, and Git. Python packages are pinned with hashes in requirements.txt and requirements-dev.txt; npm packages are pinned in web/package-lock.json and installed with install scripts switched off.
 
     python3 -m venv .venv
     . .venv/bin/activate
@@ -83,11 +83,16 @@ The spec is the single source of truth for a design. Its rules live in core/spec
 
     python scripts/export_schema.py
 
-## Start the local server
+## Start the app
 
+Build the screen once, then start the server:
+
+    cd web && npm ci && npm run build && cd ..
     python -m core.server
 
-It listens on http://127.0.0.1:8765 only (change the port with APP_PORT). It cannot be reached from other machines, refuses requests from other websites, and requires a CSRF token for any change. There is no user interface yet; that arrives in task K11.
+Open http://127.0.0.1:8765 in your browser.
+
+It listens on http://127.0.0.1:8765 only (change the port with APP_PORT). It cannot be reached from other machines, refuses requests from other websites, and requires a CSRF token for any change. 
 
 ## Licence
 
