@@ -163,6 +163,26 @@ class RoundsTest(unittest.TestCase):
         reply = d.answer(sid, answers={"address_space": "10.50.0.0/22"})
         self.assertEqual(reply.problems, [])
 
+    def test_placeholder_style_group_names_are_refused(self) -> None:
+        d = Discovery()
+        sid, _ = d.start(REQUIREMENT, "azure")
+        for answers in ROUND_ANSWERS[:-1]:
+            d.answer(sid, answers=answers)
+        for bad in ("GROUP_1", "Ops, GROUP_2", "Ops, ops"):
+            with self.subTest(groups=bad):
+                reply = d.answer(sid, answers={"operators": bad})
+                self.assertEqual(reply.status, "asking")
+                self.assertTrue(reply.problems)
+        reply = d.answer(sid, answers={"operators": "app, Reader"})
+        self.assertEqual(reply.status, "review")
+
+    def test_group_question_has_no_prefilled_answer(self) -> None:
+        d = Discovery()
+        sid, _ = d.start(REQUIREMENT, "azure")
+        for answers in ROUND_ANSWERS[:-1]:
+            reply = d.answer(sid, answers=answers)
+        self.assertIsNone(reply.questions[0].default)
+
     def test_http_backend_renames_the_rule(self) -> None:
         d = Discovery()
         sid, _ = d.start(REQUIREMENT, "azure")

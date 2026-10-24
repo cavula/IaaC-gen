@@ -91,6 +91,25 @@ def canonical_json(spec: Spec) -> str:
     return json.dumps(spec.model_dump(mode="json"), indent=2, sort_keys=True) + "\n"
 
 
+def _leaks(spec: Spec, local_values: dict[str, str]) -> bool:
+    """True if a real value appears where user answers are written.
+
+    Real values are only ever typed in as answers, so they could only leak
+    through the access list or the recorded decisions. Checking just those
+    places, as whole words, avoids false alarms from resource names (a group
+    called "app" must not clash with "rg-my-app").
+    """
+    places = [a.principal for a in spec.access]
+    places += [f"{d.question}\n{d.answer}" for d in spec.decisions]
+    for placeholder, value in local_values.items():
+        if not value or value == placeholder:
+            continue
+        word = re.compile(r"(?<![\w-])" + re.escape(value) + r"(?![\w-])", re.IGNORECASE)
+        if any(word.search(p) for p in places):
+            return True
+    return False
+
+
 class ProjectStore:
     def __init__(self, workspace_dir: Path) -> None:
         git = shutil.which("git")
@@ -193,9 +212,11 @@ class ProjectStore:
             text = canonical_json(approved)
             if find_secrets(text):
                 raise ProjectError("refusing to save: the spec looks like it contains a secret")
-            for value in (local_values or {}).values():
-                if value and value in text:
-                    raise ProjectError("refusing to save: a real value would enter Git")
+            if _leaks(approved, local_values or {}):
+                raise ProjectError(
+                    "Not saved: one of the real names you typed also appears in the design, so "
+                    "it would end up in Git. Please start over and use different names."
+                )
 
             _private_dir(repo)
             try:

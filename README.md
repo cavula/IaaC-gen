@@ -85,10 +85,18 @@ The spec is the single source of truth for a design. Its rules live in core/spec
 
 ## Start the app
 
-Build the screen once, then start the server:
+First time only, set up Python and build the screen:
 
+    python3.13 -m venv .venv
+    . .venv/bin/activate
+    pip install --require-hashes --no-deps -r requirements.txt
     cd web && npm ci && npm run build && cd ..
+
+Then start the app (run ". .venv/bin/activate" first in any new terminal):
+
     python -m core.server
+
+--no-deps is needed because one package version is overridden on purpose for a security fix (see overrides.txt). Every package is still checked against its recorded hash.
 
 Open http://127.0.0.1:8765 in your browser.
 

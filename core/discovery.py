@@ -43,6 +43,8 @@ MAX_GROUPS = 10
 MATCH_THRESHOLD = 0.5
 PROJECT_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{2,30}$")
 GROUP_NAME = re.compile(r"^[\w .@()-]{1,80}$")
+# Names like GROUP_1 or TENANT_2 are the tool's own placeholders, not real names.
+PLACEHOLDER_LIKE = re.compile(r"[A-Z]+(?:_[A-Z]+)*_[0-9]{1,4}")
 STOP_WORDS = frozenset(
     "a an the my our on in to of for and with it i we on please want need".split()
 )
@@ -177,6 +179,13 @@ def validate_answer(question: Question, raw: str) -> tuple[str | None, str | Non
         for name in names:
             if not GROUP_NAME.fullmatch(name):
                 return None, f"'{name[:40]}' contains characters that are not allowed."
+            if PLACEHOLDER_LIKE.fullmatch(name.strip()):
+                return None, (
+                    f"'{name}' looks like a placeholder. Please type the real name of your "
+                    "group, such as Platform Team. It stays on this computer."
+                )
+        if len({n.lower() for n in names}) != len(names):
+            return None, "Each group should be listed once."
         return "\n".join(names), None
 
     if question.answer == "port":

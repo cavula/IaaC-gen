@@ -107,9 +107,17 @@ class LocalValuesTest(StoreTestCase):
         self.assertEqual(self.store.local_values("web-shop"), GROUPS)
 
     def test_refuses_when_a_real_value_would_enter_git(self) -> None:
+        data = draft().model_dump(mode="json")
+        data["decisions"] = [{"question": "Who needs access?", "answer": "Platform Team"}]
         with self.assertRaises(ProjectError):
-            self.store.approve_new(draft(), local_values={"GROUP_1": "rg-web-shop"})
+            self.store.approve_new(Spec.model_validate(data), local_values=GROUPS)
         self.assertFalse(self.store.exists("web-shop"), "nothing half saved")
+
+    def test_group_names_that_match_resource_or_role_words_are_fine(self) -> None:
+        """A group called "app", "web" or "Reader" is not a leak."""
+        values = {"GROUP_1": "app", "GROUP_2": "web", "GROUP_3": "Reader"}
+        saved = self.store.approve_new(draft("my-app"), local_values=values)
+        self.assertEqual(saved.version, "v1")
 
     def test_refuses_a_spec_that_looks_like_it_holds_a_secret(self) -> None:
         data = draft().model_dump(mode="json")

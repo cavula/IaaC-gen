@@ -516,10 +516,9 @@
     {
       "id": "operators",
       "round": 4,
-      "text": "Which groups of people need access to these resources?",
+      "text": "Which groups of people need access to these resources? Use your own group names.",
       "why": "Access is given to groups, not individuals. Real names stay on your machine and are replaced by placeholders before anything is sent to the AI.",
-      "answer": "principal_list",
-      "default": "GROUP_1"
+      "answer": "principal_list"
     },
     {
       "id": "operator_role",

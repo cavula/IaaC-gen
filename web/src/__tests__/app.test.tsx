@@ -35,7 +35,7 @@ const ROUNDS: QuestionView[][] = [
   ],
   [choice("os", "Which operating system?", ["linux", "windows"], "linux")],
   [field("address_space", "Which private address range?", "cidr", "10.20.0.0/16")],
-  [field("operators", "Which groups need access?", "principal_list", "GROUP_1")],
+  [field("operators", "Which groups need access?", "principal_list", null)],
 ];
 
 const SPEC: Spec = {
@@ -237,8 +237,8 @@ describe("screen", () => {
     await screen.findByRole("heading", { name: "Round 4" });
     expect(screen.getByText(/never sent to the AI/)).toBeTruthy();
     expect(screen.queryByLabelText(/answer in your own words/i)).toBeNull();
-    const groups = screen.getByLabelText("Which groups need access?");
-    await user.clear(groups);
+    const groups = screen.getByLabelText("Which groups need access?") as HTMLTextAreaElement;
+    expect(groups.value).toBe("");
     await user.type(groups, "Platform Team");
     await user.click(screen.getByRole("button", { name: "Next" }));
 
